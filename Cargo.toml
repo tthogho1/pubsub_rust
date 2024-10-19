@@ -1,0 +1,11 @@
+[package]
+name = "pubsub_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+redis = "0.27.4"
+dotenv = "0.15.0"
+bb8 = "0.8.6"
+bb8-redis = "0.17.0"
+tokio = { version = "1.20.1", features = ["full"] }
