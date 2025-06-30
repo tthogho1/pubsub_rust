@@ -5,6 +5,7 @@ use std::thread;
 use std::time::Duration;
 use bb8_redis::RedisConnectionManager;
 use tokio;
+use tokio::time::timeout;
 use futures_util::stream::StreamExt; // Import StreamExt for .next() on streams
 
 use tokio::sync::broadcast;
@@ -32,10 +33,38 @@ async fn publish_message(redis_url: String) -> redis::RedisResult<()> {
             return Err(e);
         }
     };
-    let mut con  = pool.get().await.unwrap();
+    println!("pool created successfully");
 
+    let con_result = timeout(Duration::from_secs(5), pool.get()).await;
+    let mut con = match con_result {
+        Ok(Ok(con)) => {
+            // コネクション取得成功
+            println!("Connection obtained from pool successfully");
+            con
+        }
+        Ok(Err(e)) => {
+            // プール側のエラー
+            eprintln!("Pool error: {}", e);
+            return Err(redis::RedisError::from((
+                redis::ErrorKind::IoError,
+                "Pool error",
+                e.to_string(),
+            )));
+        }
+        Err(_) => {
+            // タイムアウト
+            eprintln!("Timeout while getting connection from pool");
+            return Err(redis::RedisError::from((
+                redis::ErrorKind::IoError,
+                "Timeout while getting connection from pool",
+            )));
+        }
+    };
+
+    //let mut con  = pool.get().await.unwrap();
     println!("publish to Redis : message Hello, world!");
     let _: () = con.publish("my_channel", "Hello, world!").await?;
+    println!("message published successfully");
     Ok(())
 }
 
